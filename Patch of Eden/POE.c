@@ -16,9 +16,12 @@ float CameraPanSpeed = 1;
 bool CameraPanSpeedUp = false;
 float CameraPanSpeedUpRate = .1;
 float CameraPanMaxSpeed = 20; // Pan Will be changed to flight later, Once the movement actually resembles such
-float HorizontalSensitivity = 1;
-float VerticalSensitivity = 1; // Smoothed DEGREE shifts of 360 per Mouse dot scan, Or come up with a conversion rate that feels good.
+float HorizontalSensitivity = .2;
+float VerticalSensitivity = .2; // Smoothed DEGREE shifts of 360 per Mouse dot scan, Or come up with a conversion rate that feels good.
+float MovementSpeed = .1;
 bool Paused = false;
+bool InvertLookHorizontal = false;
+bool InvertLookVertical = false;
 float prevMouseX = 0;
 float prevMouseY = 0;
 float CamLateralMax = 360;
@@ -31,8 +34,8 @@ float CamLongitudalMin = 0;
 // ** Controls ** //
 
 // ** GLOBAL PHYSICS VARIABLES ** //
-float ScreenWidth = 812;
-float ScreenHeight = 512;
+float ScreenWidth = 1280;
+float ScreenHeight = 720;
 float ScreenCenterX = 0;// ScreenWidth / 2;
 float ScreenCenterY = 0;
 SDL_FRect FreeCam = {0,0,10,10}; // Temporary Placeholder for testing camera Movement controls, Will WASD, 
@@ -252,15 +255,15 @@ bool quit = false;//, buttonClicked = false, switchWindow = false;
                     prevMouseX = x;
                 }
 
-                if (prevMouseY > y)
-                {   Perspective->LookHorizontalAxis -= (prevMouseY - y) * VerticalSensitivity; // Might need a Motion Smoothing Function
-                    if (Perspective->LookHorizontalAxis < CamLongitudalMin) { Perspective->LookHorizontalAxis = CamLongitudalMin; }
-                    
+                if (prevMouseY < y)
+                {   Perspective->LookVerticalAxis -= ((y - prevMouseY) * VerticalSensitivity); // Might need a Motion Smoothing Function
+                   if (Perspective->LookVerticalAxis < CamLongitudalMin) { Perspective->LookVerticalAxis = CamLongitudalMin; } // if More stop, dont wrap back around, its nauseating
                     prevMouseY = y;
                 }
-                if (prevMouseY < y)
-                {   Perspective->LookVerticalAxis += (y - prevMouseY) * VerticalSensitivity; // Might need a Motion Smoothing Function
-                    if (Perspective->LookVerticalAxis > CamLongitudalMax) { Perspective->LookVerticalAxis = CamLongitudalMax; } // if More stop, dont wrap back around, its nauseating
+                if (prevMouseY > y)
+                {   Perspective->LookVerticalAxis += (prevMouseY - y) * VerticalSensitivity; // Might need a Motion Smoothing Function
+                    
+                     if (Perspective->LookVerticalAxis > CamLongitudalMax) { Perspective->LookVerticalAxis = CamLongitudalMax;}
                     prevMouseY = y;
                 }
               
@@ -281,36 +284,44 @@ bool quit = false;//, buttonClicked = false, switchWindow = false;
                             for (int k = 0; k < (int)CameraPanSpeed; k++)
                             {
                         switch (e.key.key) {    
-                        case SDLK_UP:
-                        case SDLK_W:
-                        CameraPanSpeedUp = true;
-                       // if ( Perspective->y > 0){
-                            Perspective->y--; // watching through the eyes of AI and other players will be a feature
-                        printf("Walk Up, Cam Speed %f\n",CameraPanSpeed);//} // Will need a control mode shift tree for different player states, game master, pLAYER, ENtity eyes aka no controls at all.
+                        case SDLK_UP: // 8 is not a magic Number its a standar to diagnolly split this circle into diagonal quarters
+                        case SDLK_W: // This is likely NEVER to be anything but 360 degrees, And the magic number method is MORE EFFICIENT, Clean Code != Efficient Code, But if my employer request They will recieve.
+                        CameraPanSpeedUp = true; 
+                            if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 7  || Perspective->LookHorizontalAxis < (CamLateralMax /8) * 1 ) { printf("North  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->y+=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 1  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 3 ) { printf("East  %f %f\n",Perspective->x,CameraPanSpeed); Perspective->x+=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 3  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 5 ) { printf("South  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->y-=MovementSpeed; }// watching through the eyes of AI and other players will be a feature
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 5 && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 7 ) { printf("West  %f %f\n",Perspective->x,CameraPanSpeed) ; Perspective->x-=MovementSpeed; } // Increase or decrease X and Y by fractions of a whole number,
+    
                         break;
 
                         case SDLK_S :
                         case SDLK_DOWN: // still have to register the press For audio feedback if its at the border
                         CameraPanSpeedUp = true;
-                       // if ( Perspective->y < ScreenHeight - 10){
-                            Perspective->y++;
-                        printf("Walk Down, Cam Speed %f\n",CameraPanSpeed);//}
+                        if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 7  || Perspective->LookHorizontalAxis < (CamLateralMax /8) * 1 ) { printf("North  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->y-=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 1  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 3 ) { printf("East  %f %f\n",Perspective->x,CameraPanSpeed); Perspective->x-=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 3  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 5 ) { printf("South  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->y+=MovementSpeed; }// watching through the eyes of AI and other players will be a feature
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 5 && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 7 ) { printf("West  %f %f\n",Perspective->x,CameraPanSpeed) ; Perspective->x+=MovementSpeed; } // Increase or decrease X and Y by fractions of a whole number,
+    
                         break;
 
                         case SDLK_A:
                         case SDLK_LEFT:
                         CameraPanSpeedUp = true;
-                       // if ( Perspective->x > 0){
-                            Perspective->x--;
-                         printf("Walk Left, Cam Speed %f\n",CameraPanSpeed);//} // Now it can only move 1 pixel at a time to not go out of bounds, any more and it will,
+                             if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 7  || Perspective->LookHorizontalAxis < (CamLateralMax /8) * 1 ) { printf("North  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->x-=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 1  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 3 ) { printf("East  %f %f\n",Perspective->x,CameraPanSpeed); Perspective->y+=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 3  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 5 ) { printf("South  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->x+=MovementSpeed; }// watching through the eyes of AI and other players will be a feature
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 5 && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 7 ) { printf("West  %f %f\n",Perspective->x,CameraPanSpeed) ; Perspective->y-=MovementSpeed; } // Increase or decrease X and Y by fractions of a whole number,
+    
                         break;
 
                         case SDLK_D:
                         case SDLK_RIGHT:
                         CameraPanSpeedUp = true;
-                        //if ( Perspective->x < ScreenWidth -10){
-                            Perspective->x++;
-                        printf("Walk Right, Cam Speed %f\n",CameraPanSpeed);//}
+                  if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 7  || Perspective->LookHorizontalAxis < (CamLateralMax /8) * 1 ) { printf("North  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->x+=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 1  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 3 ) { printf("East  %f %f\n",Perspective->x,CameraPanSpeed); Perspective->y-=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 3  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 5 ) { printf("South  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->x-=MovementSpeed; }// watching through the eyes of AI and other players will be a feature
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 5 && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 7 ) { printf("West  %f %f\n",Perspective->x,CameraPanSpeed) ; Perspective->y+=MovementSpeed; } // Increase or decrease X and Y by fractions of a whole number,
+    
                         break;
                         }
                            
@@ -329,11 +340,11 @@ if (CameraPanSpeedUp == true && CameraPanSpeed < CameraPanMaxSpeed) { CameraPanS
 
 char Cbuffer[512];
 char Coordbuffer[512] = "Patch Of Eden*";
-snprintf(Cbuffer, sizeof(Cbuffer), "X %f*Y %f*Z %f*Horizantal Facing Degree %f*Vertical Facing Degree %f*Gabriel Wynn 2026",Perspective->x, Perspective->y, Perspective->z, Perspective->LookHorizontalAxis, Perspective->LookVerticalAxis); 
+snprintf(Cbuffer, sizeof(Cbuffer), "X %.3f*Y % .3f*Z %.3f*Horizantal Facing Degree %.3f*Vertical Facing Degree %.3f*Gabriel Wynn 2026",Perspective->x, Perspective->y, Perspective->z, Perspective->LookHorizontalAxis, Perspective->LookVerticalAxis); 
 strcat(Coordbuffer, Cbuffer);
 strcat(Coordbuffer, "!");
 strcpy(Coordinates.Text, Coordbuffer); 
-TypeTextToScreen(&Coordinates, 1, 50, 30);
+TypeTextToScreen(&Coordinates, 1, 10, 10);
 
 for (int d = 0; d < strlen(Coordinates.Text)  -1; d++)
 {
