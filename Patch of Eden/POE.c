@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <sys/stat.h>
-
+#include <math.h> // temporary will be replaced, The math will be ALL be
 // DEFAULT DEFINEMENT //
 
 
@@ -16,9 +16,9 @@ float CameraPanSpeed = 1;
 bool CameraPanSpeedUp = false;
 float CameraPanSpeedUpRate = .1;
 float CameraPanMaxSpeed = 20; // Pan Will be changed to flight later, Once the movement actually resembles such
-float HorizontalSensitivity = .2;
-float VerticalSensitivity = .2; // Smoothed DEGREE shifts of 360 per Mouse dot scan, Or come up with a conversion rate that feels good.
-float MovementSpeed = .1;
+float HorizontalSensitivity = .3;
+float VerticalSensitivity = .3; // Smoothed DEGREE shifts of 360 per Mouse dot scan, Or come up with a conversion rate that feels good.
+float MovementSpeed = .06;
 bool Paused = false;
 bool InvertLookHorizontal = false;
 bool InvertLookVertical = false;
@@ -52,7 +52,7 @@ float LookHorizontalAxis; // of 360 degrees
 }  EntityState; // maybe seperate the base essentials of the Look direction, From other state variables Like items and attachments, Even mobs will need this much
 // Will need a ENUM and a fully dynamic setup for this later
 EntityState GameMaster;
-
+float AngleOfApproach = 0;
 
 int EntityEmbodied = 0; // The entity ID for the entity whos perspective is being viewed
 // -- PLAYER PHYSICS -- //
@@ -77,9 +77,155 @@ float CollisionDampening = 0; // For Bouncy objects
 
 
 
+float Cosf(float x)
+{
+    float xx = x * x;
+
+    float result = 1.0f;
+
+    float term = 1.0f;
+
+    term = term * xx / 2.0f;
+    result = result - term;
+
+    term = term * xx / 12.0f;
+    result = result + term;
+
+    term = term * xx / 30.0f;
+    result = result - term;
+
+    term = term * xx / 56.0f;
+    result = result + term;
+
+    term = term * xx / 90.0f;
+    result = result - term;
+
+    term = term * xx / 132.0f;
+    result = result + term;
+
+    term = term * xx / 182.0f;
+    result = result - term;
+
+    term = term * xx / 240.0f;
+    result = result + term;
+
+    term = term * xx / 306.0f;
+    result = result - term;
+
+    return result;
+}
 
 
+float Sinf(float x)
+{
+    float xx = x * x;
 
+    float result = x;
+    float term = x;
+
+    term = term * xx / 6.0f;
+    result = result - term;
+
+    term = term * xx / 20.0f;
+    result = result + term;
+
+    term = term * xx / 42.0f;
+    result = result - term;
+
+    term = term * xx / 72.0f;
+    result = result + term;
+
+    term = term * xx / 110.0f;
+    result = result - term;
+
+    term = term * xx / 156.0f;
+    result = result + term;
+
+    term = term * xx / 210.0f;
+    result = result - term;
+
+    term = term * xx / 272.0f;
+    result = result + term;
+
+    term = term * xx / 342.0f;
+    result = result - term;
+
+    return result;
+}
+
+void DrawCircle(SDL_Renderer *renderer, float cx, float cy, float radius)
+{
+    const int segments = 30; //50 makes it round // 4 makes it a square // too high  a numbe makes it cap out at a unknown sum of maxusefulness
+       
+    for (int i = 0; i < segments; i++)
+    {
+        float a1 = (2.0f * 3.14 * i) / segments;
+        float a2 = (2.0f * 3.14 * (i + 1)) / segments;
+
+        float x1 = cx + Cosf(a1) * radius;
+        float y1 = cy + Sinf(a1) * radius;
+
+        float x2 = cx + Cosf(a2) * radius;
+        float y2 = cy + Sinf(a2) * radius;
+
+        SDL_RenderLine(renderer, x1, y1, x2, y2);
+    }
+}
+
+void DrawGrid(SDL_Renderer *renderer, float x, float y, float Width, int GridDivisions)
+{
+   GridDivisions += 1;
+
+      float x1 = x - Width;
+      float y1 = y - Width;
+       float x2 = x1;
+        float y2 = y + Width;
+      SDL_RenderLine(renderer, x1, y1, x2, y2);
+
+        x1 = x - Width;
+     y1 = y - Width;
+        x2 = x + Width;
+        y2 = y1;
+      SDL_RenderLine(renderer, x1, y1, x2, y2);
+
+    x1 = x + Width;
+      y1 = y + Width;
+        x2 = x - Width;
+        y2 = y1;
+     SDL_RenderLine(renderer, x1, y1, x2, y2);
+
+       x1 = x + Width;
+      y1 = y - Width;
+        x2 = x + Width;
+        y2 = y + Width;
+     SDL_RenderLine(renderer, x1, y1, x2, y2);
+
+
+ for (int i = 1; i < GridDivisions; i++)
+    {
+
+        x1 = x - Width;// + (((Width * 2) / Divisions)* i);
+        y1 = y- Width + (((Width * 2) / GridDivisions)* i);
+
+        x2 = x + Width; //+ (((Width * 2) / GridDivisions)* i);
+        y2 = y - Width + (((Width * 2) / GridDivisions)* i);
+
+        SDL_RenderLine(renderer, x1, y1, x2, y2);
+    
+
+        x1 = x - Width + (((Width * 2) /  GridDivisions)* i);
+        y1 = y- Width; //+ (((Width * 2) / GridDivisions)* i);
+
+        x2 = x - Width + (((Width * 2) / GridDivisions)* i);
+        y2 = y + Width; //+ (((Width * 2) / GridDivisions)* i);
+
+        SDL_RenderLine(renderer, x1, y1, x2, y2);
+    
+    
+    }
+
+
+}
 
 
     typedef struct {
@@ -287,10 +433,10 @@ bool quit = false;//, buttonClicked = false, switchWindow = false;
                         case SDLK_UP: // 8 is not a magic Number its a standar to diagnolly split this circle into diagonal quarters
                         case SDLK_W: // This is likely NEVER to be anything but 360 degrees, And the magic number method is MORE EFFICIENT, Clean Code != Efficient Code, But if my employer request They will recieve.
                         CameraPanSpeedUp = true; 
-                            if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 7  || Perspective->LookHorizontalAxis < (CamLateralMax /8) * 1 ) { printf("North  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->y+=MovementSpeed; }
-                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 1  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 3 ) { printf("East  %f %f\n",Perspective->x,CameraPanSpeed); Perspective->x+=MovementSpeed; }
-                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 3  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 5 ) { printf("South  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->y-=MovementSpeed; }// watching through the eyes of AI and other players will be a feature
-                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 5 && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 7 ) { printf("West  %f %f\n",Perspective->x,CameraPanSpeed) ; Perspective->x-=MovementSpeed; } // Increase or decrease X and Y by fractions of a whole number,
+                            if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 7  || Perspective->LookHorizontalAxis < CamLateralMax /8) { printf("North  %f %f\n",Perspective->y,CameraPanSpeed); Perspective->y+=MovementSpeed; }
+                       else if ( Perspective->LookHorizontalAxis >= CamLateralMax /8  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 3 ) {    AngleOfApproach = (Perspective->LookHorizontalAxis - (CamLateralMax /8)) * (100/((CamLateralMax /8) * 2)); if(AngleOfApproach >= 50){ AngleOfApproach = (AngleOfApproach - 50)  / 100; Perspective->x+=(MovementSpeed * (1 - AngleOfApproach)); Perspective->y-=(MovementSpeed *  AngleOfApproach); } else{ AngleOfApproach = (50 - AngleOfApproach) / 100; Perspective->x+=(MovementSpeed * (1 - AngleOfApproach)); Perspective->y+=(MovementSpeed * AngleOfApproach);  } printf("East  %f X %f %f\n",AngleOfApproach,Perspective->x,CameraPanSpeed);  }
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 3  && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 5 ) { AngleOfApproach = (Perspective->LookHorizontalAxis - ((CamLateralMax /8)* 3) ) * (100 /((CamLateralMax /8) * 2)); if(AngleOfApproach >= 50){ AngleOfApproach = (AngleOfApproach - 50)  / 100; Perspective->y-=(MovementSpeed * (1 - AngleOfApproach)); Perspective->x-=(MovementSpeed * AngleOfApproach); } else{ AngleOfApproach = (50 - AngleOfApproach) / 100; Perspective->y-=(MovementSpeed * (1 - AngleOfApproach)); Perspective->x+=(MovementSpeed * AngleOfApproach);  } printf("South  %f  Y %f %f\n",AngleOfApproach,Perspective->y,CameraPanSpeed);}// watching through the eyes of AI and other players will be a feature
+                       else if ( Perspective->LookHorizontalAxis >= (CamLateralMax /8) * 5 && Perspective->LookHorizontalAxis < (CamLateralMax /8) * 7 ) { AngleOfApproach = (Perspective->LookHorizontalAxis - ((CamLateralMax /8)* 5) ) * (100/((CamLateralMax /8) * 2)); if(AngleOfApproach >= 50){ AngleOfApproach = (AngleOfApproach - 50) / 100; Perspective->x-=(MovementSpeed * (1 - AngleOfApproach)); Perspective->y+=(MovementSpeed * AngleOfApproach); } else{ AngleOfApproach = (50 - AngleOfApproach) / 100; Perspective->x-=(MovementSpeed * (1 - AngleOfApproach)); Perspective->y-=(MovementSpeed *  AngleOfApproach);  } printf("West %f X %f %f\n",AngleOfApproach,Perspective->x,CameraPanSpeed); } // Increase or decrease X and Y by fractions of a whole number,
     
                         break;
 
@@ -356,8 +502,17 @@ for (int d = 0; d < strlen(Coordinates.Text)  -1; d++)
 SDL_SetRenderDrawBlendMode(Firstrenderer, SDL_BLENDMODE_BLEND);
 SDL_SetRenderDrawColor(Firstrenderer,255,180,180,255);
         SDL_RenderFillRect(Firstrenderer,&FreeCam);
+
+
+SDL_SetRenderDrawColor(Firstrenderer, 255, 255, 255, 255);
+
+        DrawCircle(Firstrenderer, ScreenCenterX, ScreenCenterY, 100);
+          DrawGrid(Firstrenderer, ScreenCenterX, ScreenCenterY, 100, 6); // Even numbers only
          SDL_RenderPresent(Firstrenderer);
    
+
+
+
  SDL_Delay(16); // 16 is about 60 fps
 SDL_SetRenderDrawColor(Firstrenderer, 0, 0, 0, 255);
 SDL_RenderClear(Firstrenderer);
